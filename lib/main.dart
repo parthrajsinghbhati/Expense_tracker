@@ -12,7 +12,14 @@ import 'screens/login_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: ".env");
+  
+  // Load .env if it exists (local dev), but don't crash if it doesn't (web production)
+  try {
+    await dotenv.load(fileName: ".env");
+  } catch (e) {
+    debugPrint('.env file not found, using environment variables.');
+  }
+
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,

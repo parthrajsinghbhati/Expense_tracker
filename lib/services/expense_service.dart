@@ -137,7 +137,11 @@ class ExpenseService {
   }
 
   Future<String> generateGroqInsight(Map<ExpenseCategory, double> currentTotals, Map<ExpenseCategory, double> previousTotals, String timeRangeLabel) async {
-    final groqApiKey = dotenv.env['GROQ_API_KEY'];
+    // Prioritize String.fromEnvironment for security (dart-define), fallback to dotenv
+    final groqApiKey = const String.fromEnvironment('GROQ_API_KEY').isNotEmpty 
+        ? const String.fromEnvironment('GROQ_API_KEY') 
+        : dotenv.env['GROQ_API_KEY'];
+
     if (groqApiKey == null || groqApiKey.isEmpty || groqApiKey == "YOUR_GROQ_API_KEY_HERE") {
       return "Please add your Groq API key in the .env file to see AI insights!";
     }
