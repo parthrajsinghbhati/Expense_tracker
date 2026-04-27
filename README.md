@@ -2,6 +2,8 @@
 
 Clean Flutter + Material 3 expense tracker backed by Cloud Firestore.
 
+**Live Demo:** [https://expense-tracker-a3303.web.app](https://expense-tracker-a3303.web.app)
+
 ## Folder Structure
 
 ```text
