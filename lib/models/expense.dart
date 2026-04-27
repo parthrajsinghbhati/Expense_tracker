@@ -21,6 +21,7 @@ enum ExpenseCategory {
 class Expense {
   const Expense({
     this.id,
+    required this.userId,
     required this.amount,
     required this.category,
     required this.date,
@@ -28,6 +29,7 @@ class Expense {
   });
 
   final String? id;
+  final String userId;
   final double amount;
   final ExpenseCategory category;
   final DateTime date;
@@ -35,6 +37,7 @@ class Expense {
 
   Map<String, dynamic> toMap() {
     return {
+      'userId': userId,
       'amount': amount,
       'category': category.label,
       'date': Timestamp.fromDate(date),
@@ -49,6 +52,7 @@ class Expense {
 
     return Expense(
       id: doc.id,
+      userId: data['userId'] as String? ?? '',
       amount: (data['amount'] as num?)?.toDouble() ?? 0,
       category: ExpenseCategory.fromLabel(data['category'] as String? ?? ''),
       date: timestamp is Timestamp ? timestamp.toDate() : DateTime.now(),

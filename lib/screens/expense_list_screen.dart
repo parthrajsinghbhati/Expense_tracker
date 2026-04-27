@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../models/expense.dart';
@@ -29,8 +30,6 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return StreamBuilder<List<Expense>>(
       stream: _expenseService.getExpenses(),
       builder: (context, snapshot) {
@@ -40,16 +39,16 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
 
         if (snapshot.hasError) {
           return EmptyState(
-            icon: Icons.error_outline,
+            icon: Icons.error_outline_rounded,
             title: 'Could not load expenses',
-            message: snapshot.error.toString(),
+            message: 'Make sure your Firestore database is created.',
           );
         }
 
         final expenses = snapshot.data ?? [];
         if (expenses.isEmpty) {
           return const EmptyState(
-            icon: Icons.receipt_long_outlined,
+            icon: Icons.receipt_long_rounded,
             title: 'No expenses yet',
             message: 'Add your first expense to start seeing insights.',
           );
@@ -58,23 +57,47 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
         final groupedExpenses = _groupByDate(expenses);
 
         return ListView(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 100),
           children: [
-            Text(
-              'Expenses',
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Recent Activity',
+                  style: GoogleFonts.outfit(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF111827),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF6366F1).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '${expenses.length} Total',
+                    style: GoogleFonts.outfit(
+                      color: const Color(0xFF6366F1),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             for (final entry in groupedExpenses.entries) ...[
               Padding(
-                padding: const EdgeInsets.only(top: 8, bottom: 10),
+                padding: const EdgeInsets.only(top: 8, bottom: 16),
                 child: Text(
                   entry.key,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    color: Colors.grey.shade700,
-                    fontWeight: FontWeight.w700,
+                  style: GoogleFonts.outfit(
+                    fontSize: 15,
+                    color: const Color(0xFF9CA3AF),
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
                   ),
                 ),
               ),

@@ -1,17 +1,24 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+import 'firebase_options.dart';
 import 'screens/add_expense_screen.dart';
 import 'screens/expense_list_screen.dart';
 import 'screens/insights_screen.dart';
+import 'screens/login_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Mocking Firebase initialization for local preview
+  await dotenv.load(fileName: ".env");
   try {
-    // await Firebase.initializeApp();
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
   } catch (e) {
-    debugPrint('Firebase not configured, using mock data.');
+    debugPrint('Firebase initialization error: $e');
   }
   runApp(const SmartExpenseApp());
 }
@@ -22,7 +29,7 @@ class SmartExpenseApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xFF5B7CFA),
+      seedColor: const Color(0xFF6366F1), // Modern Indigo
       brightness: Brightness.light,
     );
 
@@ -32,30 +39,41 @@ class SmartExpenseApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: colorScheme,
-        scaffoldBackgroundColor: const Color(0xFFFBFCFF),
-        cardTheme: CardThemeData(
-          color: Colors.white,
-          elevation: 1.5,
-          shadowColor: Colors.black.withOpacity(0.08),
-          surfaceTintColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+        textTheme: GoogleFonts.outfitTextTheme(Theme.of(context).textTheme),
+        scaffoldBackgroundColor: const Color(0xFFF9FAFB),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          centerTitle: true,
+          iconTheme: IconThemeData(color: Color(0xFF111827)),
+          titleTextStyle: TextStyle(
+            color: Color(0xFF111827),
+            fontSize: 22,
+            fontWeight: FontWeight.w600,
           ),
         ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: Colors.white,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: Colors.grey.shade300),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: Colors.grey.shade300),
+        cardTheme: CardThemeData(
+          color: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
           ),
         ),
       ),
-      home: const HomeShell(),
+      home: StreamBuilder<User?>(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+          if (snapshot.hasData && snapshot.data != null) {
+            return const HomeShell();
+          }
+          return const LoginScreen();
+        },
+      ),
     );
   }
 }
@@ -76,20 +94,42 @@ class _HomeShellState extends State<HomeShell> {
     InsightsScreen(),
   ];
 
+  Future<void> _logout() async {
+    await FirebaseAuth.instance.signOut();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBody: true,
+      appBar: AppBar(
+        title: Text(
+          ['Expenses', 'Add Expense', 'Insights'][_selectedIndex],
+          style: GoogleFonts.outfit(
+            fontWeight: FontWeight.w600,
+            fontSize: 24,
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout_rounded),
+            tooltip: 'Logout',
+            onPressed: _logout,
+          ),
+        ],
+      ),
       body: SafeArea(
+        bottom: false,
         child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 240),
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
+          duration: const Duration(milliseconds: 300),
+          switchInCurve: Curves.easeOutQuart,
+          switchOutCurve: Curves.easeInQuart,
           transitionBuilder: (child, animation) {
             return FadeTransition(
               opacity: animation,
               child: SlideTransition(
                 position: Tween<Offset>(
-                  begin: const Offset(0.04, 0),
+                  begin: const Offset(0.02, 0),
                   end: Offset.zero,
                 ).animate(animation),
                 child: child,
@@ -102,28 +142,71 @@ class _HomeShellState extends State<HomeShell> {
           ),
         ),
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) {
-          setState(() => _selectedIndex = index);
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon: Icon(Icons.receipt_long),
-            label: 'Expenses',
+      bottomNavigationBar: SafeArea(
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(32),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF6366F1).withOpacity(0.15),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
-          NavigationDestination(
-            icon: Icon(Icons.add_circle_outline),
-            selectedIcon: Icon(Icons.add_circle),
-            label: 'Add',
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildNavItem(0, Icons.receipt_long_rounded, 'Expenses'),
+                _buildNavItem(1, Icons.add_circle_rounded, 'Add'),
+                _buildNavItem(2, Icons.insights_rounded, 'Insights'),
+              ],
+            ),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.insights_outlined),
-            selectedIcon: Icon(Icons.insights),
-            label: 'Insights',
-          ),
-        ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(int index, IconData icon, String label) {
+    final isSelected = _selectedIndex == index;
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
+    return GestureDetector(
+      onTap: () => setState(() => _selectedIndex = index),
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? primaryColor.withOpacity(0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? primaryColor : const Color(0xFF9CA3AF),
+              size: 26,
+            ),
+            if (isSelected) ...[
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: GoogleFonts.outfit(
+                  color: primaryColor,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                ),
+              ),
+            ]
+          ],
+        ),
       ),
     );
   }

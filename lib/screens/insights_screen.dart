@@ -3,8 +3,13 @@ import 'package:intl/intl.dart';
 
 import '../models/expense.dart';
 import '../services/expense_service.dart';
-import '../widgets/category_breakdown_bar.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/insights/time_filter_widget.dart';
+import '../widgets/insights/date_navigation_widget.dart';
+import '../widgets/insights/smart_insight_card.dart';
+import '../widgets/insights/spending_chart_widget.dart';
+
+enum TimeFilter { allTime, monthly, weekly }
 
 class InsightsScreen extends StatefulWidget {
   const InsightsScreen({super.key});
@@ -17,6 +22,9 @@ class _InsightsScreenState extends State<InsightsScreen> {
   final _expenseService = ExpenseService();
   late Future<_InsightData> _insightFuture;
 
+  TimeFilter _currentFilter = TimeFilter.weekly;
+  DateTime _selectedDate = DateTime.now();
+
   @override
   void initState() {
     super.initState();
@@ -24,11 +32,35 @@ class _InsightsScreenState extends State<InsightsScreen> {
   }
 
   Future<_InsightData> _loadInsights() async {
-    final categoryTotals = await _expenseService.computeCategoryTotals();
-    final weeklyComparison = await _expenseService.computeWeeklyComparison();
+    DateTime? currentStart;
+    DateTime? currentEnd;
+    DateTime? previousStart;
+    DateTime? previousEnd;
+    String timeRangeLabel = "All Time";
+
+    final nowMidnight = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+
+    if (_currentFilter == TimeFilter.weekly) {
+      currentStart = nowMidnight.subtract(Duration(days: nowMidnight.weekday - 1));
+      currentEnd = currentStart.add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
+      previousStart = currentStart.subtract(const Duration(days: 7));
+      previousEnd = currentEnd.subtract(const Duration(days: 7));
+      timeRangeLabel = "week";
+    } else if (_currentFilter == TimeFilter.monthly) {
+      currentStart = DateTime(_selectedDate.year, _selectedDate.month, 1);
+      currentEnd = DateTime(_selectedDate.year, _selectedDate.month + 1, 0, 23, 59, 59);
+      previousStart = DateTime(_selectedDate.year, _selectedDate.month - 1, 1);
+      previousEnd = DateTime(_selectedDate.year, _selectedDate.month, 0, 23, 59, 59);
+      timeRangeLabel = "month";
+    }
+
+    final categoryTotals = await _expenseService.computeTotalsForRange(currentStart, currentEnd);
+    final previousTotals = await _expenseService.computeTotalsForRange(previousStart, previousEnd);
+    final aiInsight = await _expenseService.generateGroqInsight(categoryTotals, previousTotals, timeRangeLabel);
+
     return _InsightData(
       categoryTotals: categoryTotals,
-      weeklyComparison: weeklyComparison,
+      aiInsight: aiInsight,
     );
   }
 
@@ -39,7 +71,6 @@ class _InsightsScreenState extends State<InsightsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final currencyFormat = NumberFormat.currency(
       symbol: '₹',
       decimalDigits: 0,
@@ -54,9 +85,9 @@ class _InsightsScreenState extends State<InsightsScreen> {
 
         if (snapshot.hasError) {
           return EmptyState(
-            icon: Icons.error_outline,
+            icon: Icons.error_outline_rounded,
             title: 'Could not load insights',
-            message: snapshot.error.toString(),
+            message: 'Make sure your Firestore database is created.',
           );
         }
 
@@ -69,92 +100,48 @@ class _InsightsScreenState extends State<InsightsScreen> {
         return RefreshIndicator(
           onRefresh: _refresh,
           child: ListView(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 100),
             children: [
-              Text(
-                'Insights',
-                style: theme.textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+              TimeFilterWidget(
+                currentFilter: _currentFilter,
+                onFilterChanged: (filter) {
+                  setState(() {
+                    _currentFilter = filter;
+                    _selectedDate = DateTime.now();
+                  });
+                  _refresh();
+                },
               ),
-              const SizedBox(height: 20),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Current month spending',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: Colors.grey.shade700,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        currencyFormat.format(totalSpending),
-                        style: theme.textTheme.displaySmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              DateNavigationWidget(
+                currentFilter: _currentFilter,
+                selectedDate: _selectedDate,
+                onPrevious: () {
+                  setState(() {
+                    if (_currentFilter == TimeFilter.monthly) {
+                      _selectedDate = DateTime(_selectedDate.year, _selectedDate.month - 1, 1);
+                    } else {
+                      _selectedDate = _selectedDate.subtract(const Duration(days: 7));
+                    }
+                  });
+                  _refresh();
+                },
+                onNext: () {
+                  setState(() {
+                    if (_currentFilter == TimeFilter.monthly) {
+                      _selectedDate = DateTime(_selectedDate.year, _selectedDate.month + 1, 1);
+                    } else {
+                      _selectedDate = _selectedDate.add(const Duration(days: 7));
+                    }
+                  });
+                  _refresh();
+                },
               ),
-              const SizedBox(height: 16),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Category breakdown',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      if (totalSpending == 0)
-                        const EmptyState.compact(
-                          icon: Icons.bar_chart_outlined,
-                          title: 'No spending this month',
-                          message: 'Your breakdown appears after expenses are added.',
-                        )
-                      else
-                        for (final entry in data.categoryTotals.entries)
-                          CategoryBreakdownBar(
-                            category: entry.key,
-                            amount: entry.value,
-                            total: totalSpending,
-                          ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        Icons.lightbulb_outline,
-                        color: theme.colorScheme.primary,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          _buildSmartInsight(data.weeklyComparison),
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            height: 1.35,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              SmartInsightCard(insight: data.aiInsight),
+              const SizedBox(height: 32),
+              SpendingChartWidget(
+                categoryTotals: data.categoryTotals,
+                totalSpending: totalSpending,
+                currencyFormat: currencyFormat,
               ),
             ],
           ),
@@ -162,33 +149,14 @@ class _InsightsScreenState extends State<InsightsScreen> {
       },
     );
   }
-
-  String _buildSmartInsight(WeeklyComparison comparison) {
-    final category = comparison.category.label;
-    final change = comparison.percentChange.abs().toStringAsFixed(0);
-
-    if (!comparison.hasPreviousSpend && comparison.currentWeekTotal > 0) {
-      return 'You started spending on $category this week. Keep an eye on it as the week grows.';
-    }
-
-    if (comparison.percentChange > 0) {
-      return 'You spent $change% more on $category this week compared to last week.';
-    }
-
-    if (comparison.percentChange < 0) {
-      return 'You spent $change% less on $category this week compared to last week.';
-    }
-
-    return 'Your $category spending is steady compared to last week.';
-  }
 }
 
 class _InsightData {
   const _InsightData({
     required this.categoryTotals,
-    required this.weeklyComparison,
+    required this.aiInsight,
   });
 
   final Map<ExpenseCategory, double> categoryTotals;
-  final WeeklyComparison weeklyComparison;
+  final String aiInsight;
 }
