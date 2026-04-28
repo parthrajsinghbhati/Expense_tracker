@@ -54,19 +54,35 @@ class _InsightsScreenState extends State<InsightsScreen> {
       timeRangeLabel = "month";
     }
 
-    final categoryTotals = await _expenseService.computeTotalsForRange(currentStart, currentEnd);
-    final previousTotals = await _expenseService.computeTotalsForRange(previousStart, previousEnd);
-    final aiInsight = await _expenseService.generateGroqInsight(categoryTotals, previousTotals, timeRangeLabel);
+    try {
+      final categoryTotals = await _expenseService.computeTotalsForRange(currentStart, currentEnd);
+      final previousTotals = await _expenseService.computeTotalsForRange(previousStart, previousEnd);
+      final manualInsight = _expenseService.generateManualInsight(categoryTotals, previousTotals, timeRangeLabel);
 
-    return _InsightData(
-      categoryTotals: categoryTotals,
-      aiInsight: aiInsight,
-    );
+      return _InsightData(
+        categoryTotals: categoryTotals,
+        manualInsight: manualInsight,
+      );
+    } catch (e, stack) {
+      debugPrint('Error loading insights: $e');
+      debugPrint(stack.toString());
+      rethrow;
+    }
   }
 
   Future<void> _refresh() async {
-    setState(() => _insightFuture = _loadInsights());
-    await _insightFuture;
+    if (!mounted) return;
+    
+    final newFuture = _loadInsights();
+    setState(() {
+      _insightFuture = newFuture;
+    });
+    
+    try {
+      await newFuture;
+    } catch (_) {
+      // Error is handled by FutureBuilder in the UI
+    }
   }
 
   @override
@@ -136,7 +152,7 @@ class _InsightsScreenState extends State<InsightsScreen> {
                   _refresh();
                 },
               ),
-              SmartInsightCard(insight: data.aiInsight),
+              SmartInsightCard(insight: data.manualInsight),
               const SizedBox(height: 32),
               SpendingChartWidget(
                 categoryTotals: data.categoryTotals,
@@ -154,9 +170,9 @@ class _InsightsScreenState extends State<InsightsScreen> {
 class _InsightData {
   const _InsightData({
     required this.categoryTotals,
-    required this.aiInsight,
+    required this.manualInsight,
   });
 
   final Map<ExpenseCategory, double> categoryTotals;
-  final String aiInsight;
+  final String manualInsight;
 }

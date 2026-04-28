@@ -1,6 +1,6 @@
-# Smart Expense Tracker with AI Insights
+# Smart Expense Tracker with Insights
 
-A modern, premium Flutter application designed to help users track expenses efficiently and gain intelligent financial insights using AI.
+A modern, premium Flutter application designed to help users track expenses efficiently and gain intelligent financial insights.
 
 **Live Demo:** [https://expense-tracker-a3303.web.app](https://expense-tracker-a3303.web.app)
 
@@ -12,7 +12,7 @@ This project follows a **Service-Oriented Architecture** with a focus on simplic
 
 ### 1. Layered Structure
 - **Models**: Plain Dart objects (e.g., `Expense`) with Firestore serialization logic.
-- **Services**: The `ExpenseService` acts as the single source of truth for data operations. It handles Firebase interactions, AI integration, and complex business logic (like weekly comparisons).
+- **Services**: The `ExpenseService` acts as the single source of truth for data operations. It handles Firebase interactions, data analysis, and complex business logic (like weekly comparisons).
 - **Screens**: Dedicated widgets for main app flows (Expenses, Add Expense, Insights, Login).
 - **Widgets**: Reusable UI components (e.g., `SpendingChartWidget`, `ExpenseCard`) to keep screens clean.
 
@@ -36,8 +36,9 @@ This project follows a **Service-Oriented Architecture** with a focus on simplic
 ### 2. Authentication: Firebase Auth
 - **Why?** Provides secure, out-of-the-box support for email/password and anonymous authentication, allowing for a seamless user onboarding experience.
 
-### 3. AI: Groq API (Llama 3.3 70B)
-- **Why?** To provide "Smart Insights," the app uses the Groq API. It processes spending patterns and generates human-like financial advice in milliseconds. This adds a "proactive" layer to the typical "passive" tracking app.
+### 3. Smart Data Insights
+- The app analyzes your spending patterns and provides data-driven feedback.
+- It compares your current spending against previous periods and highlights major shifts or high-expenditure categories.
 
 ---
 
@@ -51,9 +52,6 @@ This project follows a **Service-Oriented Architecture** with a focus on simplic
 ### 2. Monday-Start Week
 - **Assumption**: The "Weekly Comparison" logic assumes a standard calendar week starting on **Monday**. This simplifies the date math for calculating "Current Week" vs "Previous Week."
 
-### 3. API Key Management
-- **Assumption**: Developers will provide a `GROQ_API_KEY` via a `.env` file or `--dart-define` at build time. For security, the app prioritizes environment variables over hardcoded strings.
-
 ---
 
 ## 📁 Folder Structure
@@ -62,7 +60,7 @@ This project follows a **Service-Oriented Architecture** with a focus on simplic
 lib/
   ├── models/          # Data models (Expense)
   ├── screens/         # Main navigation pages
-  ├── services/        # Business logic & API calls (Firestore, AI)
+  ├── services/        # Business logic & API calls (Firestore)
   ├── widgets/         # Reusable UI components
   └── firebase_options.dart  # Generated Firebase config
 ```
@@ -74,8 +72,4 @@ lib/
 3. **Configure Firebase**:
    - Install FlutterFire CLI: `dart pub global activate flutterfire_cli`
    - Run `flutterfire configure` to link your project.
-4. **Environment Variables**: Create a `.env` file in the root and add:
-   ```text
-   GROQ_API_KEY=your_key_here
-   ```
-5. **Run**: `flutter run`
+4. **Run**: `flutter run`

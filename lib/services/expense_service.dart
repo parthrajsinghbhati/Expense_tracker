@@ -1,8 +1,5 @@
-import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:http/http.dart' as http;
 
 import '../models/expense.dart';
 
@@ -61,7 +58,7 @@ class ExpenseService {
         .get();
 
     final expenses = snapshot.docs.map((doc) {
-      return Expense.fromFirestore(doc as DocumentSnapshot<Map<String, dynamic>>);
+      return Expense.fromFirestore(doc);
     }).where((e) {
       if (start != null && e.date.isBefore(start)) return false;
       if (end != null && e.date.isAfter(end)) return false;
@@ -136,67 +133,54 @@ class ExpenseService {
     );
   }
 
-  Future<String> generateGroqInsight(Map<ExpenseCategory, double> currentTotals, Map<ExpenseCategory, double> previousTotals, String timeRangeLabel) async {
-    // Prioritize String.fromEnvironment for security (dart-define), fallback to dotenv
-    final groqApiKey = const String.fromEnvironment('GROQ_API_KEY').isNotEmpty 
-        ? const String.fromEnvironment('GROQ_API_KEY') 
-        : dotenv.env['GROQ_API_KEY'];
-
-    if (groqApiKey == null || groqApiKey.isEmpty || groqApiKey == "YOUR_GROQ_API_KEY_HERE") {
-      return "Please add your Groq API key in the .env file to see AI insights!";
-    }
-
+  String generateManualInsight(Map<ExpenseCategory, double> currentTotals, Map<ExpenseCategory, double> previousTotals, String timeRangeLabel) {
     if (currentTotals.values.every((amount) => amount == 0)) {
-      return "You haven't spent anything during this period! Add some expenses to get AI insights.";
+      return "You haven't spent anything during this period! Add some expenses to get insights.";
     }
 
-    final currentContext = currentTotals.entries
-        .where((e) => e.value > 0)
-        .map((e) => "${e.key.label}: ₹${e.value.toStringAsFixed(0)}")
-        .join(", ");
+    final currentSum = currentTotals.values.fold<double>(0, (s, a) => s + a);
+    final previousSum = previousTotals.values.fold<double>(0, (s, a) => s + a);
 
-    final previousContext = previousTotals.entries
-        .where((e) => e.value > 0)
-        .map((e) => "${e.key.label}: ₹${e.value.toStringAsFixed(0)}")
-        .join(", ");
-
-    String prompt;
-    if (timeRangeLabel == "All Time") {
-      prompt = "Act as a smart, friendly financial advisor. My TOTAL all-time spending is: $currentContext. Give me a punchy, 2-line insight. In line 1, give a general observation. In line 2, compare my spending *between different categories* (e.g., what I'm spending most on vs least on). Keep it brief, no intro or outro.";
-    } else {
-      prompt = "Act as a smart, friendly financial advisor. My spending THIS $timeRangeLabel is: $currentContext. My spending LAST $timeRangeLabel was: ${previousContext.isEmpty ? '₹0' : previousContext}. Give me a punchy, 2-line insight. In line 1, compare my current $timeRangeLabel vs previous $timeRangeLabel spending. In line 2, compare my spending *between different categories* this $timeRangeLabel (e.g., what I'm spending most on). Keep it brief, no intro or outro.";
-    }
-
-    try {
-      final response = await http.post(
-        Uri.parse('https://api.groq.com/openai/v1/chat/completions'),
-        headers: {
-          'Authorization': 'Bearer $groqApiKey',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          "model": "llama-3.3-70b-versatile",
-          "messages": [
-            {"role": "user", "content": prompt}
-          ],
-          "temperature": 0.7,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data['choices'][0]['message']['content'].toString().trim();
+    // 1. Overall Trend
+    String trendLine = "";
+    if (previousSum > 0) {
+      final diff = ((currentSum - previousSum) / previousSum) * 100;
+      if (diff > 5) {
+        trendLine = "Your spending this $timeRangeLabel is up by ${diff.toStringAsFixed(0)}% compared to the previous period.";
+      } else if (diff < -5) {
+        trendLine = "Great job! You've spent ${diff.abs().toStringAsFixed(0)}% less this $timeRangeLabel than the previous period.";
       } else {
-        try {
-          final errorData = jsonDecode(response.body);
-          return "Groq Error: ${errorData['error']['message'] ?? 'Unknown'}";
-        } catch (_) {
-          return "Groq Error ${response.statusCode}: ${response.body}";
-        }
+        trendLine = "Your spending this $timeRangeLabel is consistent with the previous period.";
       }
-    } catch (e) {
-      return "Error connecting to AI: $e";
+    } else {
+      trendLine = "You spent a total of ₹${currentSum.toStringAsFixed(0)} this $timeRangeLabel.";
     }
+
+    // 2. Highest Category
+    final sortedCategories = currentTotals.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    
+    if (sortedCategories.isEmpty) {
+      return trendLine;
+    }
+    
+    final topCategory = sortedCategories.first;
+    String categoryLine = "";
+    if (topCategory.value > 0) {
+      categoryLine = " Most of your money (₹${topCategory.value.toStringAsFixed(0)}) went to ${topCategory.key.label}.";
+    }
+
+    // 3. Category Shift (if any)
+    String shiftLine = "";
+    for (final entry in currentTotals.entries) {
+      final prevVal = previousTotals[entry.key] ?? 0;
+      if (prevVal > 0 && entry.value > prevVal * 1.5) {
+        shiftLine = " Watch out: your ${entry.key.label} spending has spiked significantly!";
+        break;
+      }
+    }
+
+    return "$trendLine$categoryLine$shiftLine";
   }
 }
 

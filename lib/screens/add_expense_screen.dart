@@ -207,7 +207,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   ],
                 ),
                 child: DropdownButtonFormField<ExpenseCategory>(
-                  value: _selectedCategory,
+                  initialValue: _selectedCategory,
                   icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF6B7280)),
                   decoration: _customInputDecoration(
                     labelText: 'Category',
@@ -310,7 +310,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 20),
                   backgroundColor: const Color(0xFF6366F1),
                   elevation: 8,
-                  shadowColor: const Color(0xFF6366F1).withOpacity(0.5),
+                  shadowColor: const Color(0xFF6366F1).withValues(alpha: 0.5),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),

@@ -21,7 +21,7 @@ class SmartInsightCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF6366F1).withOpacity(0.3),
+            color: const Color(0xFF6366F1).withValues(alpha: 0.3),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -39,13 +39,13 @@ class SmartInsightCard extends StatelessWidget {
                   color: Colors.white.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 24),
+                child: const Icon(Icons.lightbulb_outline_rounded, color: Colors.white, size: 24),
               ),
               const SizedBox(width: 16),
               Text(
-                'Smart Insight',
+                'Quick Insight',
                 style: GoogleFonts.outfit(
-                  color: Colors.white.withOpacity(0.9),
+                  color: Colors.white.withValues(alpha: 0.9),
                   fontWeight: FontWeight.w600,
                   fontSize: 16,
                   letterSpacing: 0.5,
